@@ -77,4 +77,95 @@ public:
     }
 };
 
+// Base class for Lisp operations
+class LispOperation : public Expression
+{
+protected:
+    std::vector<Expression *> operands;
+
+public:
+    LispOperation(const std::vector<Expression *> &operands) : operands(operands) {}
+
+    virtual ~LispOperation()
+    {
+        for (auto operand : operands)
+        {
+            delete operand;
+        }
+    }
+};
+
+// Addition operation for Lisp
+class LispAddition : public LispOperation
+{
+public:
+    LispAddition(const std::vector<Expression *> &operands) : LispOperation(operands) {}
+
+    double evaluate() const override
+    {
+        double result = 0;
+        for (auto operand : operands)
+        {
+            result += operand->evaluate();
+        }
+        return result;
+    }
+};
+
+// Subtraction operation for Lisp
+class LispSubtraction : public LispOperation
+{
+public:
+    LispSubtraction(const std::vector<Expression *> &operands) : LispOperation(operands) {}
+
+    double evaluate() const override
+    {
+        double result = operands[0]->evaluate();
+        for (size_t i = 1; i < operands.size(); ++i)
+        {
+            result -= operands[i]->evaluate();
+        }
+        return result;
+    }
+};
+
+// Multiplication operation for Lisp
+class LispMultiplication : public LispOperation
+{
+public:
+    LispMultiplication(const std::vector<Expression *> &operands) : LispOperation(operands) {}
+
+    double evaluate() const override
+    {
+        double result = 1;
+        for (auto operand : operands)
+        {
+            result *= operand->evaluate();
+        }
+        return result;
+    }
+};
+
+// Division operation for Lisp
+class LispDivision : public LispOperation
+{
+public:
+    LispDivision(const std::vector<Expression *> &operands) : LispOperation(operands) {}
+
+    double evaluate() const override
+    {
+        double result = operands[0]->evaluate();
+        for (size_t i = 1; i < operands.size(); ++i)
+        {
+            double divisor = operands[i]->evaluate();
+            if (divisor == 0)
+            {
+                throw std::runtime_error("Division by zero");
+            }
+            result /= divisor;
+        }
+        return result;
+    }
+};
+
 #endif

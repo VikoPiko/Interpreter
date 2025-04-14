@@ -29,13 +29,22 @@ std::vector<std::string> tokenize(const std::string &expression)
 {
     std::vector<std::string> tokens;
     std::string token;
+    bool insideString = false;
+
     for (char c : expression)
     {
-        if (isspace(c))
+        if (isspace(c) && !insideString)
         {
+            if (!token.empty())
+            {
+                tokens.push_back(token);
+                token.clear();
+            }
             continue;
         }
-        if (isOperator(c) || c == '(' || c == ')')
+
+        // Detect parentheses as separate tokens
+        if (c == '(' || c == ')')
         {
             if (!token.empty())
             {
@@ -49,10 +58,12 @@ std::vector<std::string> tokenize(const std::string &expression)
             token += c;
         }
     }
+
     if (!token.empty())
     {
         tokens.push_back(token);
     }
+
     return tokens;
 }
 
@@ -138,26 +149,122 @@ Expression *tree(const std::vector<std::string> &postfix)
     return stack.back();
 }
 
+Expression *parseLispExpression(const std::vector<std::string> &tokens, size_t &index)
+{
+    if (index >= tokens.size())
+    {
+        throw std::runtime_error("Unexpected end of tokens in Lisp expression");
+    }
+
+    std::string token = tokens[index];
+
+    // Skip opening parentheses '('
+    if (token == "(")
+    {
+        index++; // Move to the next token
+
+        if (index >= tokens.size())
+        {
+            throw std::runtime_error("Unexpected end of expression after '('");
+        }
+
+        std::string operatorSymbol = tokens[index];
+        index++; // Move to the next token
+
+        std::vector<Expression *> operands;
+
+        // Parse operands until we encounter a closing parenthesis ')'
+        while (index < tokens.size() && tokens[index] != ")")
+        {
+            if (tokens[index] == "(")
+            {
+                operands.push_back(parseLispExpression(tokens, index)); // Recursively handle nested expressions
+            }
+            else if (isdigit(tokens[index][0]) || (tokens[index][0] == '-' && tokens[index].size() > 1 && isdigit(tokens[index][1]))) // handle negative numbers
+            {
+                operands.push_back(new Number(std::stod(tokens[index])));
+                index++; // Move to the next token
+            }
+            else
+            {
+                throw std::runtime_error("Unsupported operand in Lisp expression: " + tokens[index]);
+            }
+        }
+
+        if (index >= tokens.size() || tokens[index] != ")")
+        {
+            throw std::runtime_error("Expected closing ')' in Lisp expression");
+        }
+        index++; // Skip closing parenthesis ')'
+
+        // Based on the operator, create the corresponding operation object
+        if (operatorSymbol == "+")
+        {
+            return new LispAddition(operands);
+        }
+        else if (operatorSymbol == "-")
+        {
+            return new LispSubtraction(operands);
+        }
+        else if (operatorSymbol == "*")
+        {
+            return new LispMultiplication(operands);
+        }
+        else if (operatorSymbol == "/")
+        {
+            return new LispDivision(operands);
+        }
+        else
+        {
+            throw std::runtime_error("Unsupported operator in Lisp expression: " + operatorSymbol);
+        }
+    }
+    else
+    {
+        throw std::runtime_error("Unexpected token: " + token);
+    }
+}
+
 int main()
 {
-    std::cout << "Pi Value: " << pi << std::endl;
     std::string expression;
-    std::cout << "Enter an expression: ";
+    std::cout << "Enter an expression (infix or Lisp): ";
     std::getline(std::cin, expression);
 
     std::vector<std::string> tokens = tokenize(expression);
-    std::vector<std::string> postfix = infixToPostfix(tokens);
-    Expression *exprTree = tree(postfix);
 
-    try
+    // Check if the expression looks like Lisp (based on the first token being a parenthesis)
+    if (tokens[0] == "(")
     {
-        std::cout << "Result: " << exprTree->evaluate() << std::endl;
+        size_t index = 0;
+        try
+        {
+            // Parse the Lisp expression
+            Expression *exprTree = parseLispExpression(tokens, index);
+            std::cout << "Result: " << exprTree->evaluate() << std::endl;
+            delete exprTree;
+        }
+        catch (const std::runtime_error &e)
+        {
+            std::cerr << "Error: " << e.what() << std::endl;
+        }
     }
-    catch (const std::runtime_error &e)
+    else
     {
-        std::cerr << "Error: " << e.what() << std::endl;
+        // Infix expression, convert to postfix and evaluate
+        std::vector<std::string> postfix = infixToPostfix(tokens);
+        Expression *exprTree = tree(postfix);
+
+        try
+        {
+            std::cout << "Result: " << exprTree->evaluate() << std::endl;
+            delete exprTree;
+        }
+        catch (const std::runtime_error &e)
+        {
+            std::cerr << "Error: " << e.what() << std::endl;
+        }
     }
-    delete exprTree; // Освобождаване на паметта
 
     return 0;
 }
